@@ -1,5 +1,7 @@
 import os
 import random
+from threading import Thread
+from flask import Flask
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
@@ -97,13 +99,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         answer = "Этот раздел ещё в разработке. Скоро будет много интересного ✨!"
     await update.message.reply_text(answer)
 
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Бот для мам работает!"
+
+def run_flask():
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port)
+
 if __name__ == '__main__':
     TOKEN = os.getenv("BOT_TOKEN")
     if not TOKEN:
         raise ValueError("❌ Не найден токен! Установите переменную окружения BOT_TOKEN.")
-    app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    telegram_app = ApplicationBuilder().token(TOKEN).build()
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    app.run_polling()
+    # Запускаем Flask в отдельном потоке, чтобы Render видел порт
+    Thread(target=run_flask).start()
+
+    # Запускаем Telegram polling
+    telegram_app.run_polling()
