@@ -1,10 +1,12 @@
 import os
 import random
 from threading import Thread
+
 from flask import Flask
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
+# --- Ответы бота ---
 responses = {
     '💟 Получить поддержку': [
         "Иногда материнство кажется бесконечной дорогой без карты. Не существует идеального пути, есть только твой. Позволь себе идти по нему в своём темпе.",
@@ -84,10 +86,11 @@ responses = {
     ],
 }
 
+# --- Telegram Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup([['💟 Получить поддержку', '🫶 Забота']], resize_keyboard=True)
     await update.message.reply_text(
-        "Привет! Я — бот для мам 💛. Пока я умею давать поддержку и проявлять заботу. Но я всё время учусь чему-то новому. Добро пожаловать в безопасное и поддерживающее пространство для мам!",
+        "Привет! Я — бот для мам 💛. Пока я умею давать поддержку и проявлять заботу. Добро пожаловать!",
         reply_markup=keyboard
     )
 
@@ -99,27 +102,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         answer = "Этот раздел ещё в разработке. Скоро будет много интересного ✨!"
     await update.message.reply_text(answer)
 
+# --- Flask app для Render ---
+from flask import Flask
+from threading import Thread
+
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Бот для мам работает!"
+    return "Бот работает!"
 
 def run_flask():
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get("PORT", 8000))
     app.run(host='0.0.0.0', port=port)
 
+# --- Основной запуск ---
 if __name__ == '__main__':
     TOKEN = os.getenv("BOT_TOKEN")
     if not TOKEN:
-        raise ValueError("❌ Не найден токен! Установите переменную окружения BOT_TOKEN.")
+        raise Exception("❌ Не найден токен! Добавь переменную окружения BOT_TOKEN.")
 
-    telegram_app = ApplicationBuilder().token(TOKEN).build()
-    telegram_app.add_handler(CommandHandler("start", start))
-    telegram_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-    # Запускаем Flask в отдельном потоке, чтобы Render видел порт
+    # Запускаем Flask сервер в отдельном потоке, чтобы Render увидел открытый порт
     Thread(target=run_flask).start()
 
-    # Запускаем Telegram polling
-    telegram_app.run_polling()
+    # Запускаем Telegram-бота с polling
+    app_bot = ApplicationBuilder().token(TOKEN).build()
+    app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app_bot.run_polling()
